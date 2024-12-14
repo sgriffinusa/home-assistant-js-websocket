@@ -127,10 +127,12 @@ function processEvent(store: Store<HassEntities>, updates: StatesUpdates) {
   store.setState(state, true);
 }
 
-const subscribeUpdates = (conn: Connection, store: Store<HassEntities>) =>
-  conn.subscribeMessage<StatesUpdates>((ev) => processEvent(store, ev), {
-    type: "subscribe_entities",
-  });
+const subscribeUpdates =
+  (entityIds: string[]) => (conn: Connection, store: Store<HassEntities>) =>
+    conn.subscribeMessage<StatesUpdates>((ev) => processEvent(store, ev), {
+      type: "subscribe_entities",
+      entity_ids: entityIds,
+    });
 
 function legacyProcessEvent(
   store: Store<HassEntities>,
@@ -165,12 +167,13 @@ const legacySubscribeUpdates = (conn: Connection, store: Store<HassEntities>) =>
     "state_changed",
   );
 
-export const entitiesColl = (conn: Connection) =>
+export const entitiesColl = (conn: Connection, entityIds: string[]) =>
   atLeastHaVersion(conn.haVersion, 2022, 4, 0)
-    ? getCollection(conn, "_ent", undefined, subscribeUpdates)
+    ? getCollection(conn, "_ent", undefined, subscribeUpdates(entityIds))
     : getCollection(conn, "_ent", legacyFetchEntities, legacySubscribeUpdates);
 
 export const subscribeEntities = (
   conn: Connection,
   onChange: (state: HassEntities) => void,
-): UnsubscribeFunc => entitiesColl(conn).subscribe(onChange);
+  entityIds: string[] = [],
+): UnsubscribeFunc => entitiesColl(conn, entityIds).subscribe(onChange);
